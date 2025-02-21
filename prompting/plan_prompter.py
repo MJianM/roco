@@ -1,6 +1,7 @@
 import os 
 import json
 import pickle 
+import requests
 import numpy as np
 from rocobench.envs import MujocoSimEnv, EnvState
 import openai
@@ -234,20 +235,69 @@ Re-format to strictly follow [Action Output Instruction]!
                 response += f"NAME {aname} ACTION {action}\n"
             return response, dict()
 
+        # Determine model_type based on self.llm_source
+        if self.llm_source in ["gpt-4", "gpt-3.5-turbo"]:
+            model_type = 'gpt'
+        elif self.llm_source in [
+            "meta-llama/Meta-Llama-3.1-405B-Instruct",
+            "meta-llama/Meta-Llama-3.1-70B-Instruct",
+            "meta-llama/Meta-Llama-3.1-8B-Instruct"
+        ]:
+            model_type = 'llama'
+        else:
+            raise ValueError(f"Unsupported llm_source: {self.llm_source}")
+
+
         for n in range(self.max_api_queries):
             print('querying {}th time'.format(n))
             try:
-                response = openai.ChatCompletion.create(
-                    model=self.llm_source,
-                    messages=[
-                        # {"role": "user", "content": user_prompt},
-                        {"role": "system", "content": system_prompt},                                    
-                    ],
-                    max_tokens=self.max_tokens,
-                    temperature=self.temperature, 
-                    )
-                usage = response['usage']
-                response = response['choices'][0]['message']["content"]
+                if model_type == 'gpt':
+                    response = openai.ChatCompletion.create(
+                        model=self.llm_source,
+                        messages=[
+                            # {"role": "user", "content": user_prompt},
+                            {"role": "system", "content": system_prompt},                                    
+                        ],
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature, 
+                        )
+                    usage = response['usage']
+                    response = response['choices'][0]['message']["content"]
+
+
+                elif model_type == 'llama':
+
+                    # Llama 模型请求
+                    url = "https://api.siliconflow.cn/v1/chat/completions"
+                    headers = {
+                        # "accept": "application/json",
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer sk-usdlsrdouqsrtymmcsybnopjnrgpqklbeqqrobvsmttuiewt"
+                    }
+                    payload = {
+                        "model": self.llm_source,
+                        "messages": [
+                            {"role": "system", "content": system_prompt + user_prompt},
+                            # {"role": "user", "content": user_prompt}
+                        ],
+                        "max_tokens": self.max_tokens,
+                        "temperature": self.temperature,
+                        "top_p": 0.7,
+                        "top_k": 50,
+                        "frequency_penalty": 0.5,
+                        "n": 1
+                    }
+
+                    response = requests.post(url, headers=headers, json=payload)
+                    if response.status_code == 200:
+                        response_json = response.json()
+                        response = response_json['choices'][0]['message']['content']
+                        usage = response_json.get('usage', {})
+                    else:
+                        print(f"API error, status code: {response.status_code}")
+                        print("API error, try again")
+                        continue
+
                 print('======= response ======= \n ', response)
                 print('======= usage ======= \n ', usage)
                 break

@@ -472,7 +472,7 @@ if __name__ == "__main__":
     parser.add_argument("--tsteps", "-t", type=int, default=10)
     parser.add_argument("--task", type=str, default="cabinet")
     parser.add_argument("--output_mode", type=str, default="action_only", choices=["action_only", "action_and_path"])
-    parser.add_argument("--comm_mode", type=str, default="dialog", choices=["chat", "plan", "dialog"])
+    parser.add_argument("--comm_mode", type=str, default="plan", choices=["chat", "plan", "dialog"])
     parser.add_argument("--control_freq", "-cf", type=int, default=15)
     parser.add_argument("--skip_display", "-sd", action="store_true")
     parser.add_argument("--direct_waypoints", "-dw", type=int, default=5)
